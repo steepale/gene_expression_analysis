@@ -1,0 +1,778 @@
+#===============================================================================
+#
+#         FILE: /mnt/research/ADOL/OutsideCollaborations/20160201_Cheng_Steep_Xu_Zhang/RNA_DE/scripts/rna_gene_expression_analysis_main_documentation.sh
+#
+#        USAGE: Development script. Directions and explanations inside.
+#
+#  DESCRIPTION:  This script serves as a step by step documentation script and development script for differential gene expression
+#                analysis from whole transcriptome analysis of tumor samples and matched germline samples
+# REQUIREMENTS:  ---
+#        NOTES:  ---
+#       AUTHOR:  Alec Steep, steepale@msu.edu
+#  AFFILIATION:  Michigan State University (MSU), East Lansing, MI, United States
+#				         USDA ARS Avian Disease and Oncology Lab (ADOL), East Lansing, MI, United States
+#				         Technical University of Munich (TUM), Weihenstephan, Germany
+#      VERSION:  1.0
+#      CREATED:  2016.05.18
+#     REVISION:  
+#===============================================================================
+
+# Permanent PROJECT DIRECTORY (MSU Cluster)
+# /mnt/research/ADOL/OutsideCollaborations/20160201_Cheng_Steep_Xu_Zhang/RNA_DE
+
+# Objective of analysis:
+# Determine differentially mutated genes
+# Determine which samples cluster together with multi-dimentional analysis from differential gene expression
+# Determine kegg and GO pathways with most differentially expressed genes
+# Visualize pathways with differential gene expression and DNA-variants
+
+# working directory:
+cd /mnt/research/ADOL/OutsideCollaborations/20160201_Cheng_Steep_Xu_Zhang/RNA_DE
+
+# Make appropriate directories
+mkdir ./data
+mkdir ./data/ref
+mkdir ./data/alignments
+mkdir ./analysis
+mkdir ./analysis/fastqc
+mkdir ./data/ref/KT445934.2
+mkdir ./data/gene_counts
+mkdir ./scripts
+mkdir ./scripts/R
+
+# Copy Relevant reference data
+# cp -av /mnt/home/steepale/RNA_Seq/RNA_dif_express2/data/ref/ ./data/
+
+# Transfer the appropriate files from research directory to home directory
+
+# Make recipient directories
+find /mnt/research/ADOL/OutsideCollaborations/20160201_Cheng_Steep_Xu_Zhang/RNA_seq/data/reads/ -name '*_*_L00*_R*_001.fastq.gz' | \
+xargs -i basename {} | \
+sed 's/_[A-Z]*_L00[1-8]_R[1-2]_001.fastq.gz//' | \
+sort | uniq | \
+xargs -i sh -c "mkdir ./data/{}"
+
+# Transfer the files into their respective recipient directories
+find /mnt/research/ADOL/OutsideCollaborations/20160201_Cheng_Steep_Xu_Zhang/RNA_seq/data/reads/ -name '*_*_L00*_R*_001.fastq.gz' | \
+xargs -i basename {} | \
+sed 's/_[A-Z]*_L00[1-8]_R[1-2]_001.fastq.gz//' | \
+sort | uniq | \
+xargs -i sh -c "cp -v /mnt/research/ADOL/OutsideCollaborations/20160201_Cheng_Steep_Xu_Zhang/RNA_seq/data/reads/{}_[A-Z]*_L00[1-8]_R[1-2]_001.fastq.gz ./data/{}/"
+
+# Rename files appropriately
+# For an unknown reason, we need to run this program four times in a row (maximum of 4 data files in each folder)
+find `pwd` -name '*_*_L00*_R*_001.fastq.gz' | \
+xargs -i basename {} | \
+sed 's/_[A-Z]*_L00[1-8]_R[1-2]_001.fastq.gz//' | \
+sort | uniq | \
+xargs -i sh -c "python ./scripts/rename_rna_samples.py ./data/{}/{}_[A-Z]*_L00[1-8]_R[1-2]_001.fastq.gz"
+
+find `pwd` -name '*_*_L00*_R*_001.fastq.gz' | \
+xargs -i basename {} | \
+sed 's/_[A-Z]*_L00[1-8]_R[1-2]_001.fastq.gz//' | \
+sort | uniq | \
+xargs -i sh -c "python ./scripts/rename_rna_samples.py ./data/{}/{}_[A-Z]*_L00[1-8]_R[1-2]_001.fastq.gz"
+
+find `pwd` -name '*_*_L00*_R*_001.fastq.gz' | \
+xargs -i basename {} | \
+sed 's/_[A-Z]*_L00[1-8]_R[1-2]_001.fastq.gz//' | \
+sort | uniq | \
+xargs -i sh -c "python ./scripts/rename_rna_samples.py ./data/{}/{}_[A-Z]*_L00[1-8]_R[1-2]_001.fastq.gz"
+
+find `pwd` -name '*_*_L00*_R*_001.fastq.gz' | \
+xargs -i basename {} | \
+sed 's/_[A-Z]*_L00[1-8]_R[1-2]_001.fastq.gz//' | \
+sort | uniq | \
+xargs -i sh -c "python ./scripts/rename_rna_samples.py ./data/{}/{}_[A-Z]*_L00[1-8]_R[1-2]_001.fastq.gz"
+
+# ./scripts/rename_rna_samples.py
+######################################
+import sys
+import re
+import os
+
+infile = sys.argv[1]
+
+filename_path = str(infile)
+pathparts = filename_path.split('/')
+path = pathparts[0] + '/' + pathparts[1] + '/' + pathparts[2] + '/' 
+filename = filename_path.split('/')[3]
+nameparts = filename.split('_')
+if nameparts[1] == "1" or nameparts[1] == "2":
+	sampleID = nameparts[0] + '_' + nameparts[1]
+	barcode = nameparts[2]
+	lane = nameparts[3]
+	readnum = nameparts[4]
+	filetype = nameparts[5].split('.')[1] + '.' + nameparts[5].split('.')[2]
+else:
+	sampleID = nameparts[0]
+	barcode = nameparts[1]
+	lane = nameparts[2]
+	readnum = nameparts[3]
+	filetype = nameparts[4].split('.')[1] + '.' + nameparts[4].split('.')[2]
+newname = sampleID + '_' + lane + '_' + readnum + '.' + filetype
+newname_path = path + newname
+os.rename(filename_path, newname_path)
+########################################
+
+# Reformat the genes.gtf file to coordinate with htseq
+# grep 'gene_id' ./data/ref/genes.gtf > ./data/ref/genes_int.gtf
+
+# python ./scripts/reformat_gtf.py \
+# ./data/ref/genes_int.gtf \
+# ./data/ref/genes_htseq_format.gtf
+
+# ./scripts/reformat_gtf.py
+######################################
+# import sys
+
+# infile=sys.argv[1]
+
+# outfile=open(sys.argv[2], 'w')
+
+
+# for line in open(infile):
+# 	col = line.split('\t')
+# 	transcript_id = col[8].split(';')[0]
+# 	gene_id = col[8].split(';')[2].replace('gene_name', 'gene_id')
+# 	outfile.write(col[0] + '\t' + col[1] + '\t' + col[2] + '\t' + col[3] + '\t' + col[4] + '\t' + col[5] + '\t' + col[6] + '\t' + col[7] + '\t' + transcript_id + '; ' + gene_id + '\n')
+# print('Finished')
+########################################
+
+# Build the bowtie index from the reference genome
+module load bowtie2/2.2.6
+
+bowtie2-build \
+./data/ref/galgal5.fa \
+./data/ref/galgal5
+
+# Preprocess, map, and count all the reads mapped to each gene
+find `pwd` -name '*_L00[1-8]_R[1-2].fastq.gz' | \
+xargs -i basename {} | \
+sed 's/_L00[1-8]_R[1-2].fastq.gz//' | \
+sort | uniq | \
+xargs -i echo 'qsub ./scripts/preprocess_map_count.sh -v Var='{} |sh
+
+
+# ./scripts/preprocess_map_count.sh
+########################################
+#!/bin/bash -login
+#PBS -l nodes=1:ppn=10,walltime=02:00:00:00,mem=20gb
+#PBS -j oe
+set -e
+set -u
+set -o pipefail
+
+# working directory:
+cd /mnt/research/ADOL/OutsideCollaborations/20160201_Cheng_Steep_Xu_Zhang/RNA_DE
+
+# Look at your data in FastQC and generate a report
+module load FastQC/0.11.3
+
+find ./data/${Var}/ -name '*_L00*_R*.fastq.gz' | \
+xargs -i sh -c "fastqc {} -o ./analysis/fastqc/"
+
+# Trim the data with trimmomatic
+module load Trimmomatic/0.33
+
+find ./data/${Var}/ -name '*_L00*_R*.fastq.gz' | \
+xargs -i basename {} | \
+sed 's/_R[1-2].fastq.gz//' | \
+sort | uniq | \
+xargs -i sh -c "java -jar -Xmx20g $TRIM/trimmomatic PE -threads 8 ./data/${Var}/{}_R1.fastq.gz ./data/${Var}/{}_R2.fastq.gz ./data/${Var}/{}_R1_paired.fastq.gz ./data/${Var}/{}_R1_unpaired.fastq.gz ./data/${Var}/{}_R2_paired.fastq.gz ./data/${Var}/{}_R2_unpaired.fastq.gz ILLUMINACLIP:$TRIM/adapters/TruSeq3-PE.fa:2:30:10 LEADING:2 TRAILING:2 SLIDINGWINDOW:4:2 MINLEN:25"
+
+# This is equivalent to:
+
+#java -jar $TRIM/trimmomatic \
+#PE \
+#./data/File1_L001_R1.fastq.gz \
+#./data/File1_L001_R2.fastq.gz \
+#./data/File1_L001_R1_paired.fastq.gz \
+#./data/File1_L001_R1_unpaired.fastq.gz \
+#./data/File1_L001_R2_paired.fastq.gz \
+#./data/File1_L001_R2_unpaired.fastq.gz \
+#ILLUMINACLIP:$TRIM/adapters/TruSeq3-PE.fa:2:30:10 \
+#LEADING:2 \
+#TRAILING:2 \
+#SLIDINGWINDOW:4:2 \
+#MINLEN:25
+
+# Remove adapters (ILLUMINACLIP:TruSeq3-PE.fa:2:30:10)
+# ILLUMINACLIP:<fastaWithAdaptersEtc>:<seed mismatches>:<palindrome clip threshold>:<simple clip threshold>
+# Remove Illumina adapters provided in the TruSeq3-PE.fa file (provided). Initially Trimmomatic will look for seed matches (16 bases) allowing maximally 2 mismatches. 
+# These seeds will be extended and clipped if in the case of paired end reads a score of 30 is reached (about 50 bases), 
+# or in the case of single ended reads a score of 10, (about 17 bases).
+# Remove leading low quality or N bases (below quality 2) (LEADING:2)
+# Remove trailing low quality or N bases (below quality 2) (TRAILING:2)
+# Scan the read with a 4-base wide sliding window, cutting when the average quality per base drops below 2 (SLIDINGWINDOW:4:2)
+# Choose a phed cutoff of two based on MacManes, 2014.
+# Drop reads below the 25 bases long (MINLEN:25)
+
+# Remove the trimmed unpaired reads
+find ./data/${Var}/ -name '*_L00[1-8]_R[1-2]_unpaired.fastq.gz' | \
+xargs -i sh -c "rm {}"
+
+# Remove the original raw data files that were previously copied
+find ./data/${Var}/ -name '*_L00*_R[1-2].fastq.gz' | \
+xargs -i sh -c "rm {}"
+
+# Look at paired trimmed reads in FastQC
+find ./data/${Var}/ -name '*_L00[1-8]_R[1-2]_paired.fastq.gz' | \
+xargs -i sh -c "fastqc {} -o ./analysis/fastqc/"
+
+# Obtained chicken specific rRNA from GenBank accession number KT445934
+# file: /mnt/scratch/steepale/birdman/MDV_project/RNA_dif_express/data/ref/KT445934.2/KT445934.2_Gallus_rRNA_gg4.fasta
+
+# Examine the rRNA data to make sure it is in proper format for bbmap
+/mnt/home/steepale/Apps/bbmap/testformat.sh \
+./data/ref/KT445934.2/KT445934.2_Gallus_rRNA_gg4.fasta
+#sanger	fasta	raw	single-ended
+
+# Remove the rRNA sequences specific to chicken
+find ./data/${Var}/ -name '*_L00[1-8]_R[1-2]_paired.fastq.gz' | \
+xargs -i basename {} | \
+sed 's/_R[1-2]_paired.fastq.gz//' | \
+sort | uniq | 
+xargs -i sh -c "/mnt/home/steepale/Apps/bbmap/bbduk.sh -Xmx18g in1=./data/${Var}/{}_R1_paired.fastq.gz in2=./data/${Var}/{}_R2_paired.fastq.gz out1=./data/${Var}/{}_R1_paired_norRNA.fastq.gz out2=./data/${Var}/{}_R2_paired_norRNA.fastq.gz ref=./data/ref/KT445934.2/KT445934.2_Gallus_rRNA_gg4.fasta"
+
+# This is equivalent to:
+#/mnt/home/steepale/Apps/bbmap/bbduk.sh \
+#in1=./data/Sample_lane_R1_paired.fastq \
+#in2=./data/Sample_lane_R2_paired.fastq \
+#out1=./data/Sample_lane_R1_paired_norRNA.fastq \
+#out2=./data/Sample_lane_R2_paired_norRNA.fastq \
+#ref=./data/ref/KT445934.2/KT445934.2_Gallus_rRNA_gg4.fasta
+
+# Remove the redundent paired trimmed reads that were output from Trimmomatic
+find ./data/${Var}/ -name '*_L00[1-8]_R[1-2]_paired.fastq.gz' | \
+xargs -i sh -c "rm {}"
+
+# Look at paired trimmed reads minus rRNA in FastQC
+find ./data/${Var}/ -name '*_L00[1-8]_R[1-2]_paired_norRNA.fastq.gz' | \
+xargs -i sh -c "fastqc {} -o ./analysis/fastqc/"
+
+# Map the reads to a reference genome
+module load TopHat/2.1.0
+module load bowtie2/2.2.6
+
+# Need to map by certain paired lanes (1&2, 3&4, 5&6, 7) based on how samples were organized during sequencing run
+#1&2
+find ./data/${Var}/ -name '*_L00[1-2]_R[1-2]_paired_norRNA.fastq.gz' | \
+xargs -i basename {} | \
+sed 's/_L00[1-8]_R[1-2]_paired_norRNA.fastq.gz//' | \
+sort | uniq | \
+xargs -i sh -c "tophat -p 10 --transcriptome-index=./data/ref/GCF_000002315.4_Gallus_gallus-5.0_genomic -o ./data/${Var} ./data/ref/galgal5 ./data/${Var}/{}_L001_R1_paired_norRNA.fastq.gz,./data/${Var}/{}_L002_R1_paired_norRNA.fastq.gz ./data/${Var}/{}_L001_R2_paired_norRNA.fastq.gz,./data/${Var}/{}_L002_R2_paired_norRNA.fastq.gz"
+#3&4
+find ./data/${Var}/ -name '*_L00[3-4]_R[1-2]_paired_norRNA.fastq.gz' | \
+xargs -i basename {} | \
+sed 's/_L00[1-8]_R[1-2]_paired_norRNA.fastq.gz//' | \
+sort | uniq | \
+xargs -i sh -c "tophat -p 10 --transcriptome-index=./data/ref/GCF_000002315.4_Gallus_gallus-5.0_genomic -o ./data/${Var} ./data/ref/galgal5 ./data/${Var}/{}_L003_R1_paired_norRNA.fastq.gz,./data/${Var}/{}_L004_R1_paired_norRNA.fastq.gz ./data/${Var}/{}_L003_R2_paired_norRNA.fastq.gz,./data/${Var}/{}_L004_R2_paired_norRNA.fastq.gz"
+#5&6
+find ./data/${Var}/ -name '*_L00[5-6]_R[1-2]_paired_norRNA.fastq.gz' | \
+xargs -i basename {} | \
+sed 's/_L00[1-8]_R[1-2]_paired_norRNA.fastq.gz//' | \
+sort | uniq | \
+xargs -i sh -c "tophat -p 10 --transcriptome-index=./data/ref/GCF_000002315.4_Gallus_gallus-5.0_genomic -o ./data/${Var} ./data/ref/galgal5 ./data/${Var}/{}_L005_R1_paired_norRNA.fastq.gz,./data/${Var}/{}_L006_R1_paired_norRNA.fastq.gz ./data/${Var}/{}_L005_R2_paired_norRNA.fastq.gz,./data/${Var}/{}_L006_R2_paired_norRNA.fastq.gz"
+#7
+find ./data/${Var}/ -name '*_L007_R[1-2]_paired_norRNA.fastq.gz' | \
+xargs -i basename {} | \
+sed 's/_L00[1-8]_R[1-2]_paired_norRNA.fastq.gz//' | \
+sort | uniq | \
+xargs -i sh -c "tophat -p 10 --transcriptome-index=./data/ref/GCF_000002315.4_Gallus_gallus-5.0_genomic -o ./data/${Var} ./data/ref/galgal5 ./data/${Var}/{}_L007_R1_paired_norRNA.fastq.gz ./data/${Var}/{}_L007_R2_paired_norRNA.fastq.gz"
+
+# This is equivalent to:
+#tophat \
+#-p 4 \
+#--transcriptome-index=./data/ref/GCF_000002315.4_Gallus_gallus-5.0_genomic \
+#-o ./data/sample_barcode \
+#./data/ref/galgal5 \
+#./data/sample_barcode_firstlane_R1_paired_norRNA.fastq.gz,./data/sample_barcode_secondlane_R1_paired_norRNA.fastq.gz \
+#./data/sample_barcode_firstlane_R2_paired_norRNA.fastq.gz,./data/sample_barcode_secondlane_R2_paired_norRNA.fastq.gz
+
+# Count the number of mapped reads with samtools
+module load SAMTools/1.2
+
+find ./data/${Var}/ -name '*_L00[1-8]_R[1-2]_paired_norRNA.fastq.gz' | \
+xargs -i basename {} | \
+sed 's/_L00[1-8]_R[1-2]_paired_norRNA.fastq.gz//' | \
+sort | uniq | \
+xargs -i sh -c "echo {}; samtools view -c -F 4 ./data/${Var}/accepted_hits.bam"
+
+# Look at the mapping summary files
+find ./data/${Var}/ -name '*_L00[1-8]_R[1-2]_paired_norRNA.fastq.gz' | \
+xargs -i basename {} | \
+sed 's/_L00[1-8]_R[1-2]_paired_norRNA.fastq.gz//' | \
+sort | uniq | \
+xargs -i sh -c "echo {}; cat ./data/${Var}/align_summary.txt"
+
+# 60% of reads mapped when all said and done... 60% of 50,000,000 is 30,000,000... literally just enough
+
+# Sort the BAMs with Samtools
+find ./data/${Var}/ -name '*_L00[1-8]_R[1-2]_paired_norRNA.fastq.gz' | \
+xargs -i basename {} | \
+sed 's/_L00[1-8]_R[1-2]_paired_norRNA.fastq.gz//' | \
+sort | uniq | \
+xargs -i sh -c "samtools sort -n ./data/${Var}/accepted_hits.bam ./data/${Var}/{}_paired_norRNA_sorted"
+
+# Remove the tophat output bam file
+rm ./data/${Var}/accepted_hits.bam
+rm ./data/${Var}/unmapped.bam
+
+# Count the mapped RNA read coverage on respective genes
+module load PySAM/0.6
+module load HTSeq/0.6.1
+
+find ./data/${Var}/ -name '*_paired_norRNA_sorted.bam' | \
+xargs -i basename {} | \
+sed 's/_paired_norRNA_sorted.bam//' | \
+sort | uniq | \
+xargs -i sh -c "htseq-count --format=bam --stranded=yes --order=name ./data/${Var}/{}_paired_norRNA_sorted.bam ./data/ref/ensemble/Gallus_gallus.Gallus_gallus-5.0.86.gtf > ./data/gene_counts/{}_ensembl_gene_counts.txt"
+
+# Remove the paired trimmed reads minus rRNA
+find ./data/${Var}/ -name '*_L00[1-8]_R[1-2]_paired_norRNA.fastq.gz' | \
+xargs -i sh -c "rm {}"
+
+qstat -f ${PBS_JOBID}
+########################################
+
+
+# Transfer the gene counts files to my macbook pro for development purposes
+# rsync -acp steepale@rsync.hpcc.msu.edu:/mnt/research/ADOL/OutsideCollaborations/20160201_Cheng_Steep_Xu_Zhang/RNA_DE/data/gene_counts/*_gene_counts.txt \
+# /Users/Alec/Documents/Bioinformatics/MDV_Project/rna_gene_expression_analysis/data/gene_counts/
+
+# Generate the R command to create a vector of sample names
+(echo 'samples <- c'; \
+find ./data/gene_counts -name *_gene_counts.txt | \
+xargs -i basename {} | \
+sed 's/_gene_counts.txt//' | \
+sort | uniq | \
+sed '$ ! s/.*/"&",/; $ s/.*/"&")/' | \
+tr '\n' ' ') | tr '\n' '('
+# samples <- c("017733", "017738-1", "017741-1", "017748", "017756-3", "017766-1", "017777-3", "017787-2", "017794-1", "017798-1_1", "017798-1_2", "017820", "017824", "017833-1", "017834-2", "017835-1", "017841-3", "017842-2_1", "017842-2_2", "017855-1_1", "017855-1_2", "017863-1", "017884-2", "017901-2_1", "017901-2_2", "017906-1", "017911-1_1", "017911-1_2", "017918-3", "017927-2", "017936", "017939", "017945", "017947")
+
+# Generate the R command to read the sample names
+for ((i=1; i<=34; i++))
+do
+find ./data/gene_counts -name *_gene_counts.txt | \
+xargs -i basename {} | \
+sed 's/_gene_counts.txt//' | \
+sort | uniq | \
+sed "s/.*/& <- read.sample(samples[$i])/"
+done
+
+# Change to the R working directory
+cd ./data/gene_counts
+
+# R script
+#######################
+setwd("/Users/Alec/Documents/Bioinformatics/MDV_Project/rna_gene_expression_analysis/data/gene_counts")
+# Sources to cite:
+# http://f1000researchdata.s3.amazonaws.com/manuscripts/9996/16888710-6725-433b-ab2a-13c04bfe6cb5_8987_-_gordon_smyth_v2.pdf
+# http://2014-msu-rnaseq.readthedocs.io/en/latest/model-orgs.html
+# https://wikis.utexas.edu/display/bioiteam/Differential+gene+expression+analysis#Differentialgeneexpressionanalysis-Optional:edgeR
+
+# Create a table of samples and their appropriate groups, and feed this into an object 
+targets <- read.delim("Targets.txt", stringsAsFactors=FALSE)
+
+targets
+
+# Group your samples accordingly, and feed into another object
+group <- paste(targets$group, targets$description, sep=".")
+group <- factor(group)
+table(group)
+
+# Create an object with sample names
+samples <- c("017733", "017748", "017820", "017824", "017936", "017939", "017945", "017947", "017738-1", "017741-1", "017766-1", "017777-3", "017787-2", "017794-1", "017798-1_1", "017798-1_2", "017833-1", "017835-1", "017841-3", "017842-2_1", "017842-2_2", "017855-1_1", "017855-1_2", "017863-1", "017884-2", "017901-2_1", "017901-2_2", "017906-1", "017911-1_1", "017911-1_2", "017918-3", "017927-2")
+
+# This is a function to read our gene count files that resulted from HTSeq
+read.sample <- function(sample.name) {
+        file.name <- paste(sample.name, "_ensembl_gene_counts.txt", sep="")
+        result <- read.delim(file.name, col.names=c("SYMBOL", "count"), sep="\t", colClasses=c("character", "numeric"), row.names=1)
+}
+
+# Read the samples into properly named variables
+sample.1 <- read.sample(samples[1])
+sample.2 <- read.sample(samples[2])
+sample.3 <- read.sample(samples[3])
+sample.4 <- read.sample(samples[4])
+sample.5 <- read.sample(samples[5])
+sample.6 <- read.sample(samples[6])
+sample.7 <- read.sample(samples[7])
+sample.8 <- read.sample(samples[8])
+sample.9 <- read.sample(samples[9])
+sample.10 <- read.sample(samples[10])
+sample.11 <- read.sample(samples[11])
+sample.12 <- read.sample(samples[12])
+sample.13 <- read.sample(samples[13])
+sample.14 <- read.sample(samples[14])
+sample.15 <- read.sample(samples[15])
+sample.16 <- read.sample(samples[16])
+sample.17 <- read.sample(samples[17])
+sample.18 <- read.sample(samples[18])
+sample.19 <- read.sample(samples[19])
+sample.20 <- read.sample(samples[20])
+sample.21 <- read.sample(samples[21])
+sample.22 <- read.sample(samples[22])
+sample.23 <- read.sample(samples[23])
+sample.24 <- read.sample(samples[24])
+sample.25 <- read.sample(samples[25])
+sample.26 <- read.sample(samples[26])
+sample.27 <- read.sample(samples[27])
+sample.28 <- read.sample(samples[28])
+sample.29 <- read.sample(samples[29])
+sample.30 <- read.sample(samples[30])
+sample.31 <- read.sample(samples[31])
+sample.32 <- read.sample(samples[32])
+
+# Load all the sample variables into one data frame
+all.data <- data.frame(sample.1, sample.2$count, sample.3$count, sample.4$count, sample.5$count, sample.6$count, sample.7$count, sample.8$count, sample.9$count, sample.10$count, sample.11$count, sample.12$count, sample.13$count, sample.14$count, sample.15$count, sample.16$count, sample.17$count, sample.18$count, sample.19$count, sample.20$count, sample.21$count, sample.22$count, sample.23$count, sample.24$count, sample.25$count, sample.26$count, sample.27$count, sample.28$count, sample.29$count, sample.30$count, sample.31$count, sample.32$count)
+
+# Temporarily label the column names a certain way for the sake of an output file
+# First, set row names to their own column
+# library(data.table)
+# setDT(all.data, keep.rownames = TRUE)[]
+# colnames(all.data) <- c("ENSEMBL_GENE_ID", "017733", "017748", "017820", "017824", "017936", "017939", "017945", "017947", "017738-1", "017741-1", "017766-1", "017777-3", "017787-2", "017794-1", "017798-1_1", "017798-1_2", "017833-1", "017835-1", "017841-3", "017842-2_1", "017842-2_2", "017855-1_1", "017855-1_2", "017863-1", "017884-2", "017901-2_1", "017901-2_2", "017906-1", "017911-1_1", "017911-1_2", "017918-3", "017927-2")
+# write.table(all.data, "/Users/Alec/Documents/Bioinformatics/MDV_Project/rna_gene_expression_analysis/data/gene_counts/expression_data_ensembl_chicken_gene_id.txt", sep="\t", row.names = FALSE, col.names = TRUE, quote = FALSE)
+
+# Label the columns of all.data
+colnames(all.data)[1:ncol(all.data)] <- samples
+
+# source("https://bioconductor.org/biocLite.R")
+# biocLite("BiocUpgrade")
+library("DESeq")
+library("limma")
+library("edgeR")
+
+# Enter gene counts into a DGEList object with edgeR
+dge = DGEList(counts=all.data, group=group, genes=row.names(all.data))
+
+# Add gene annotation 
+
+# Load a gallus gallus annotation bank to add additional annotation for downstream analyses
+library(org.Gg.eg.db)
+keytypes(org.Gg.eg.db)
+columns(org.Gg.eg.db)
+head(keys(org.Gg.eg.db, "GENENAME"))
+# [1] "ACCNUM"       "ALIAS"        "ENSEMBL"      "ENSEMBLPROT" 
+# [5] "ENSEMBLTRANS" "ENTREZID"     "ENZYME"       "EVIDENCE"    
+# [9] "EVIDENCEALL"  "GENENAME"     "GO"           "GOALL"       
+# [13] "IPI"          "ONTOLOGY"     "ONTOLOGYALL"  "PATH"        
+# [17] "PFAM"         "PMID"         "PROSITE"      "REFSEQ"      
+# [21] "SYMBOL"       "UNIGENE"      "UNIPROT"  
+
+# Add "ENTREZID" and "GENENAME" annotation to dge$genes
+dim(dge)
+dge$genes$EntrezID <- mapIds(org.Gg.eg.db, rownames(all.data), "ENTREZID", "ENSEMBL")
+dge$genes$GeneName <- mapIds(org.Gg.eg.db, rownames(all.data), "GENENAME", "ENSEMBL")
+dge$genes$Symbol <- mapIds(org.Gg.eg.db, rownames(all.data), "SYMBOL", "ENSEMBL")
+dge$counts[dge$genes$Symbol=="USP9X", ]
+all.data[rownames(all.data)=="ENSGALG00000043034", ]
+
+# Remove any genes that did not have a corresponding ENTREZID
+dge <- dge[!is.na(dge$genes$EntrezID), ]
+dim(dge$genes)
+
+
+# Remove genes that show low read counts (keep genes that have above 0.5 count per million in atleast 12 libraries; 12 males and 12 females)
+# 0.5 comes from 10/L where L is the minimum library size in millions. Lowest library size: 20925538 (017901-2_1).
+keep <- rowSums(cpm(dge) > 0.5) >= 2
+table(keep)
+
+# Subset the DGEList object to retain only the non-filtered genes
+# kepp.lib.sizes=FALSE recalculates the library sizes post filtering 
+dge <- dge[keep, keep.lib.sizes=FALSE]
+
+# Normalize the composition bias
+# Normalization by trimmed mean of M values (TMM) is performed by calcNormFactors, 
+# which calculates a set of normalization factors for each library to elimintae composition bias.
+dge <- calcNormFactors(dge)
+dge$samples
+
+# Cluster the RNA samples in two dimensions using a multi-dimensional scaling (MDS) plot. 
+# Looks at overall differences in expression profiles
+pch <- c(0,1,25,17,11)
+plotMDS(dge, pch=pch[group])
+# To determine the samples that cluster together. Note, this is not a very attractive graph; need to edit for future use
+# plotMDS(dge, labels = rownames(dge$samples))
+legend("topleft", legend=levels(group), pch=pch)
+
+# Explore expression profiles of individual samples with mean-difference (MD) plots. 
+# "The MD plot visualizes the library size-adjusted log-fold change between two libraries (the difference) against the
+# average log-expression across those libraries (the mean)" ~Chen, Lun, Smyth 2016
+plotMD(dge, column=1)
+abline(h=0, col="red", lty=2, lwd=2)
+
+# "The design matrix, which is required for DE analysis, records which treatment conditions were applied to 
+# each samples, and it also defines how the experimental effects are parametrized in the linear models."
+design <- model.matrix(~0+group)
+colnames(design) <- levels(group)
+design
+
+# "The dispersion parameter of the NB distribution accounts for variability between biological replicates. 
+# edgeR estimates an empirical Bayes moderated dispersion for each individual gene. It also estimates a 
+# common dispersion, which is a global dispersion estimate averaged over all genes, and a trended dispersion 
+# where the dispersion of a gene is predicted from its abundance."
+dge <- estimateDisp(dge, design, robust=TRUE)
+
+# Plot the dispersion estimates with plotBCV
+# "The vertical axis of the plotBCV plot shows square-root dispersion, also known as biological coefficient 
+# of variation (BCV)"
+# "the asymptotic value for the BCV tends to be in range from 0.05 to 0.2 for genetically identical mice 
+# or cell lines, whereas somewhat larger values (> 0.3) are observed for human subjects."
+plotBCV(dge)
+
+# "The NB model can be extended with quasi-likelihood (QL) methods to account for gene-specific variability 
+# from both biological and technical sources7,12. Under the QL framework, the NB dispersion trend is used 
+# to describe the overall biological variability across all genes, and gene-specific variability above and 
+# below the overall level is picked up by the QL dispersion. In the QL approach, the individual (tagwise) 
+# NB dispersions are not used."
+# "Setting robust=TRUE in glmQLFit is usually recommended21. This allows gene-specific prior df estimates, 
+# with lower values for outlier genes and higher values for the main body of genes. This reduces the 
+# Chance of getting false positives from genes with extremely high or low raw dispersions, while at the 
+# same time increasing statistical power to detect differential expression for the main body of genes."
+fit <- glmQLFit(dge, design, robust=TRUE)
+head(fit$coefficients)
+
+# Visualize the QL dispersions with plotQLDisp
+plotQLDisp(fit)
+
+summary(fit$df.prior)
+
+# Test for differential gene expression between appropriate groups
+# Group1 vs Group2
+# A positive log2-fold-change (logFC) indicates up-regulation in Group1 relative to Group2 
+# A negative log2-fold-change (logFC) indicates up-regulation in Group1 relative to Group2
+NMvsTM <- makeContrasts(NC.Mature-Tu.Male, levels=design)
+
+res <- glmQLFTest(fit, contrast=NMvsTM)
+# View the top DE genes
+topTags(res)
+
+# The total number of DE genes identified at an FDR of 5% can be shown with decideTestsDGE
+# Use decideTestsDGE to determine the number of DE genes with an FDR at or below 5%.
+is.de <- decideTestsDGE(res)
+summary(is.de)
+
+# Visualize the DE genes with an MD plot
+plotMD(res, status=is.de, values=c(1,-1), col=c("red","blue"), legend="topright")
+
+# glmQLFTest shows differential expression no matter how small that difference is
+# "A better and more rigorous approach is to modify the statistical test so as to 
+# detect expression changes greater than a specified threshold."
+# "Here we test whether the differential expression fold changes are significantly 
+# greater than 1.5, that is, whether the logFCs are significantly greater than log2(1.5)"
+# IMPORTANT: "The p-values from glmTreat are larger than those from glmQLFTest, and the 
+# number of significantly DE genes is fewer, because it is testing an interval null 
+# hypothesis and requires stronger evidence for differential expression than does a 
+# conventional test. It provides greater specificity for identifying the most important 
+# genes with large fold changes."
+tr <- glmTreat(fit, contrast=NMvsTM, lfc=log2(1.5))
+topDE200 <- topTags(tr, n=200)
+
+# Use decideTestsDGE to determine the number of DE genes with an FDR at or below 5%.
+is.de <- decideTestsDGE(tr)
+summary(is.de)
+
+# Visualize the DE genes with an MD plot
+plotMD(tr, status=is.de, values=c(1,-1), col=c("red","blue"), legend="topright")
+
+# Generate a heat map
+# Covert read counts to log2 counts per million (logCPM)
+logCPM <- cpm(dge, prior.count=2, log=TRUE)
+rownames(logCPM) <- dge$genes$Symbol
+colnames(logCPM) <- paste(rownames(dge$samples))
+
+# Choose the top 40 DE genes
+o <- order(tr$table$PValue)
+logCPM <- logCPM[o[1:200],]
+# 
+logCPM[rownames(logCPM)=="MCC", ]
+
+# Scale each gene to have a mean of 0 and a standard deviation of 1
+logCPM <- t(scale(t(logCPM)))
+
+
+library(gplots)
+col.pan <- colorpanel(100, "blue", "white", "red")
+heatmap.2(logCPM, col=col.pan, Rowv=TRUE, scale="none", trace="none", dendrogram="both", cexRow=1, cexCol=1.4, density.info="none", margin=c(10,9), lhei=c(2,10), lwid=c(2,6))
+# "Because we have pre-standardized the rows of the logCPM matrix, 
+# the Euclidean distance between each pair of genes is proportional to (1 − r)2, 
+# where r is the Pearson correlation coefficient between the two genes. This 
+# shows that the heatmap will cluster together genes that have positively 
+# correlated logCPM values, because large positive correlations correspond to small distances."
+
+# Load the appropriate chicken annotation databases
+# biocLite("GO.db")
+library(GO.db)
+library(org.Gg.eg.db)
+
+# Use goana to find the top differentiated or enriched gene ontology pathways
+go <- goana(tr, geneid = tr$genes$EntrezID, species="Gg")
+go50 <- topGO(go, n=50)
+
+# Use kegga to find the top differentiated or enriched KEGG pathways
+keg <- kegga(tr, geneid = tr$genes$EntrezID, species="Gg")
+kegg50 <- topKEGG(keg, n=50)
+
+# str(opttxt)
+# sink('topGO.txt')
+# topGO(go, n=100)
+# sink()
+
+# Example commands on searching Kegg DB
+# getKEGGPathwayNames("gga", remove=TRUE)[110,]
+# getGeneKEGGLinks("gga")[110,]
+
+# mapk <- kegga(tr, geneid = tr$genes$EntrezID, species="Gg", gene.pathway = getGeneKEGGLinks("gga")[110,])
+
+# Install pathview to map RNA dif expressed genes and DNA variants to pathways
+library(pathview)
+
+# Obtain mapping data between compound or gene IDs and KEGG accessions
+data(cpd.accs)
+data(cpd.names)
+data(kegg.met)
+data(ko.ids)
+data(rn.list)
+data(gene.idtype.list)
+data(gene.idtype.bods)
+data(cpd.simtypes)
+
+# Replace a dataframe that works with pathview (unknown why it doesn't work) with the column of data wanted
+# Covert read counts to log2 counts per million (logCPM)
+logCPM <- cpm(dge, prior.count=2, log=TRUE)
+
+# Replace a dataframe that works with pathview (unknown why it doesn't work) with the column of data wanted
+logCPM[, 1] <- tr$table[, "logFC"]
+rownames(logCPM) <- dge$genes$genes
+colnames(logCPM) <- paste(rownames(dge$samples))
+
+mka <- df[df$PATH=="04010", ]
+mkg <- mka[!is.na(mka$PATH), ]
+
+pv.out <- pathview(gene.data = logCPM[, 1], gene.idtype = "ensembl", pathway.id = "gga04510", species = "gga", out.suffix = "focal_adhesion", kegg.native = T)
+pv.out <- pathview(gene.data = logCPM[, 1], gene.idtype = "ensembl", pathway.id = "gga04512", species = "gga", out.suffix = "ECM_receptor_interaction", kegg.native = T)
+pv.out <- pathview(gene.data = logCPM[, 1], gene.idtype = "ensembl", pathway.id = "gga04210", species = "gga", out.suffix = "apoptosis", kegg.native = T)
+pv.out <- pathview(gene.data = logCPM[, 1], gene.idtype = "ensembl", pathway.id = "gga04310", species = "gga", out.suffix = "wnt_signaling", kegg.native = T)
+pv.out <- pathview(gene.data = logCPM[, 1], gene.idtype = "ensembl", pathway.id = "gga05168", species = "gga", out.suffix = "herpes_simplex_infection", kegg.native = T)
+pv.out <- pathview(gene.data = logCPM[, 1], gene.idtype = "ensembl", pathway.id = "gga04010", species = "gga", out.suffix = "MAPK_signaling", kegg.native = T)
+pv.out <- pathview(gene.data = logCPM[, 1], gene.idtype = "ensembl", pathway.id = "gga04070", species = "gga", out.suffix = "phosphatidylinositol_signaling", kegg.native = T)
+pv.out <- pathview(gene.data = logCPM[, 1], gene.idtype = "ensembl", pathway.id = "gga04110", species = "gga", out.suffix = "cell_cycle", kegg.native = T)
+pv.out <- pathview(gene.data = logCPM[, 1], gene.idtype = "ensembl", pathway.id = "gga04350", species = "gga", out.suffix = "TGF-beta_signaling", kegg.native = T)
+pv.out <- pathview(gene.data = logCPM[, 1], gene.idtype = "ensembl", pathway.id = "gga04310", species = "gga", out.suffix = "wnt_signaling", kegg.native = T)
+pv.out <- pathview(gene.data = logCPM[, 1], gene.idtype = "ensembl", pathway.id = "gga04810", species = "gga", out.suffix = "reg_actin_cytoskeleton", kegg.native = T)
+
+# Examine possible gene id types
+data(gene.idtype.list)
+gene.idtype.list
+
+# Examine species types and kegg codes
+data(bods) 
+bods
+
+# Now we switch to mapping DNA variants
+#########
+setwd("/Users/Alec/Documents/Bioinformatics/MDV_Project/pathway_analysis")
+
+# Read the file and format accordingly
+SI <- read.table(file="all_nonsyn_snvs_indels.txt", sep="\t", header = TRUE, row.names = NULL)
+snpin <- subset(SI, select = (TYPE:ENSEMBL))
+
+# Create a data frame with an appropriate gene identifier and provide
+# Annotation with Ensemble
+# a value of 1 to each gene (this value will show up red on the pathway map)
+df <- data.frame(snpin$ENSEMBL, "1")
+colnames(df) <- c("ENSEMBL", "all_samples")
+# Remove any genes with no gene ID in ensembl
+df <- df[!is.na(df$ENSEMBL), ]
+# Column for gene ID needs to be character
+df$ENSEMBL <- as.character(df$ENSEMBL)
+#Remove duplicate gene IDs
+df <- df[!duplicated(df[,"ENSEMBL"]),]
+
+library("DESeq")
+library("limma")
+library("edgeR")
+# Load the appropriate chicken annotation databases
+# biocLite("GO.db")
+library(GO.db)
+library(org.Gg.eg.db)
+# Install pathview to map RNA dif expressed genes and DNA variants to pathways
+library(pathview)
+# Obtain mapping data between compound or gene IDs and KEGG accessions
+data(cpd.accs)
+data(cpd.names)
+data(kegg.met)
+data(ko.ids)
+data(rn.list)
+data(gene.idtype.list)
+data(gene.idtype.bods)
+data(cpd.simtypes)
+
+#Annotate further
+df$SYMBOL <- mapIds(org.Gg.eg.db, df$ENSEMBL, column = "SYMBOL", keytype = "ENSEMBL")
+df$PATH <- mapIds(org.Gg.eg.db, df$ENSEMBL, column = "PATH", keytype = "ENSEMBL")
+df$ALIAS <- mapIds(org.Gg.eg.db, df$ENSEMBL, column = "ALIAS", keytype = "ENSEMBL")
+rownames(df) <- df$ENSEMBL
+
+# Show me the genes with a non-synonymous mutation in appropriate pathway
+# The regulation of actin cyctoskelatal pathway
+acta <- df[df$PATH=="04810", ]
+actg <- acta[!is.na(acta$PATH), ]
+actg
+
+# The Focal Adhesion Pathway
+faa <- df[df$PATH=="04510", ]
+fag <- faa[!is.na(faa$PATH), ]
+fag
+
+# The RNA Transport Pathway
+rta <- df[df$PATH=="03013", ]
+rtg <- rta[!is.na(rta$PATH), ]
+rtg
+
+# The MapK Pathway
+mka <- df[df$PATH=="04010", ]
+mkg <- mka[!is.na(mka$PATH), ]
+mkg
+
+# The Calcium Signaling Pathway
+csa <- df[df$PATH=="04020", ]
+csg <- csa[!is.na(csa$PATH), ]
+csg
+
+# The Cell Cycle Pathway
+cca <- df[df$PATH=="04110", ]
+ccg <- cca[!is.na(cca$PATH), ]
+ccg
+
+# The WNT Signaling Pathway
+wta <- df[df$PATH=="04310", ]
+wtg <- wta[!is.na(wta$PATH), ]
+wtg
+
+# The TGF-ß Signaling Pathway
+tba <- df[df$PATH=="04350", ]
+tbg <- tba[!is.na(tba$PATH), ]
+tbg
+
+pv.out <- pathview(gene.data = df[, 2, drop=FALSE], gene.idtype = "ensembl", pathway.id = "gga04810", species = "gga", out.suffix = "all_samples_LC_ensembl_Reg_actin_cytoskeleton", kegg.native = T)
+pv.out <- pathview(gene.data = df[, 2, drop=FALSE], gene.idtype = "ensembl", pathway.id = "gga04510", species = "gga", out.suffix = "all_samples_LC_ensembl_focal_adhesion", kegg.native = T)
+pv.out <- pathview(gene.data = df[, 2, drop=FALSE], gene.idtype = "ensembl", pathway.id = "gga03013", species = "gga", out.suffix = "all_samples_LC_ensembl_RNA_transport", kegg.native = T)
+pv.out <- pathview(gene.data = df[, 2, drop=FALSE], gene.idtype = "ensembl", pathway.id = "gga04010", species = "gga", out.suffix = "all_samples_LC_ensembl_mapk_signaling", kegg.native = T)
+pv.out <- pathview(gene.data = df[, 2, drop=FALSE], gene.idtype = "ensembl", pathway.id = "gga04020", species = "gga", out.suffix = "all_samples_LC_ensembl_ca_signaling", kegg.native = T)
+pv.out <- pathview(gene.data = df[, 2, drop=FALSE], gene.idtype = "ensembl", pathway.id = "gga04110", species = "gga", out.suffix = "all_samples_LC_ensembl_cell_cycle", kegg.native = T)
+pv.out <- pathview(gene.data = df[, 2, drop=FALSE], gene.idtype = "ensembl", pathway.id = "gga04310", species = "gga", out.suffix = "all_samples_LC_ensembl_wnt_signaling", kegg.native = T)
+pv.out <- pathview(gene.data = df[, 2, drop=FALSE], gene.idtype = "ensembl", pathway.id = "gga04350", species = "gga", out.suffix = "all_samples_LC_ensembl_TGF-beta_signaling", kegg.native = T)
+######################################################
+
+
+
+
+
+
+
+
+
+
